@@ -1,5 +1,3 @@
-Based of [TanStarter](https://github.com/dotnize/tanstarter)
-
 ## Setup
 
 ```

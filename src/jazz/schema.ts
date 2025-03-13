@@ -1,111 +1,6 @@
-import {
-  Account,
-  CoFeed,
-  CoList,
-  CoMap,
-  FileStream,
-  Group,
-  Profile,
-  SchemaUnion,
-  co,
-} from "jazz-tools"
+import { Account, CoMap, Group, Profile, co } from "jazz-tools"
 
-export class BaseReaction extends CoMap {
-  type = co.string
-}
-
-export class ThumbUpReaction extends BaseReaction {
-  type = co.literal("thumb-up")
-}
-
-export class ThumbDownReaction extends BaseReaction {
-  type = co.literal("thumb-down")
-}
-
-const Reaction = SchemaUnion.Of<BaseReaction>((raw) => {
-  switch (raw.get("type")) {
-    case "thumb-up":
-      return ThumbUpReaction
-    case "thumb-down":
-      return ThumbDownReaction
-    default:
-      throw new Error("Unknown reaction type")
-  }
-})
-
-export class ReactionsList extends CoList.Of(co.ref(Reaction)) {}
-
-// Main entities
-export class Tag extends CoMap {
-  name = co.string
-  color = co.optional.string
-  deleted = co.optional.boolean
-}
-
-export class TagList extends CoList.Of(co.ref(Tag)) {}
-
-export class Attachment extends CoMap {
-  file = co.ref(FileStream)
-  type = co.literal("image", "video", "audio", "document", "other")
-}
-
-export class AttachmentList extends CoList.Of(co.ref(Attachment)) {}
-
-export class Comment extends CoMap {
-  content = co.string
-  issue = co.ref(Issue)
-  deleted = co.optional.boolean
-  reactions = co.ref(ReactionsList)
-  attachments = co.ref(AttachmentList)
-}
-
-export class CommentList extends CoList.Of(co.ref(Comment)) {}
-
-export class Issue extends CoMap {
-  title = co.string
-  description = co.string
-  status = co.literal("open", "in_progress", "resolved", "closed")
-  priority = co.literal("low", "medium", "high", "critical")
-  estimate = co.number
-  dueDate = co.optional.Date
-  attachments = co.ref(AttachmentList)
-  deleted = co.optional.boolean
-  tags = co.ref(TagList)
-  comments = co.ref(CommentList)
-  reactions = co.ref(ReactionsList)
-}
-
-export class IssueList extends CoList.Of(co.ref(Issue)) {}
-
-export class Project extends CoMap {
-  name = co.string
-  description = co.optional.string
-  status = co.literal("active", "archived", "completed")
-  issues = co.ref(IssueList)
-  deleted = co.optional.boolean
-}
-
-export class ProjectList extends CoList.Of(co.ref(Project)) {}
-
-export class Team extends CoMap {
-  name = co.string
-  projects = co.ref(ProjectList)
-  liveUpdates = co.ref(
-    CoFeed.Of(
-      co.json<{
-        type: "presence" | "reaction" | "comment" | "issue"
-        data: Record<string, string>
-      }>(),
-    ),
-  )
-  deleted = co.optional.boolean
-}
-
-export class TeamList extends CoList.Of(co.ref(Team)) {}
-
-export class Container extends CoMap {
-  teams = co.ref(TeamList)
-}
+export class Container extends CoMap {}
 
 export class AccountRoot extends CoMap {
   container = co.ref(Container)
@@ -127,7 +22,6 @@ export class UserProfile extends Profile {
 export class JazzAccount extends Account {
   profile = co.ref(UserProfile)
   root = co.ref(AccountRoot)
-
   async migrate(creationProps?: {
     name: string
     other?: Record<string, unknown>
@@ -136,7 +30,6 @@ export class JazzAccount extends Account {
       await this.initialMigration(creationProps)
       return
     }
-
     // uncomment this to add migrations
     // const currentVersion = this.root?.version || 0;
     // if (currentVersion < 1) {
@@ -166,19 +59,14 @@ export class JazzAccount extends Account {
 
     const privateGroup = Group.create({ owner: this })
 
-    // Create initial container with empty collections
-    const defaultContainer = Container.create(
-      {
-        teams: TeamList.create([], { owner: privateGroup }),
-      },
-      { owner: privateGroup },
-    )
+    // create initial container with empty collections
+    const defaultContainer = Container.create({}, { owner: privateGroup })
 
-    // Initialize root structure with version
+    // initialize root structure with version
     this.root = AccountRoot.create(
       {
         container: defaultContainer,
-        version: 0, // Set initial version
+        version: 0,
         // here owner is always "this" Account
       },
       { owner: this },
